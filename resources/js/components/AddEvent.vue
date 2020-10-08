@@ -9,7 +9,12 @@
         <div class="mt-2 text-gray-600 dark:text-gray-400 text-sm">
           <form class="w-full">
             <div class="flex flex-wrap -mx-3">
-              <div class="w-full px-3">
+              <div
+                class="w-full px-3"
+                :class="{
+                  'has-error': $v.form.event_name.$error,
+                }"
+              >
                 <label
                   class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2"
                   for="grid-password"
@@ -17,32 +22,53 @@
                   The name of event is
                 </label>
                 <input
-                  class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
+                  class="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
                   type="text"
                   v-model="form.event_name"
-                  @click="open"
+                  :class="{
+                    'bg-red-400': $v.form.event_name.$error,
+                  }"
                 />
+                <ul v-if="$v.form.$error">
+                  <li
+                    class="text-red-600 mb-2"
+                    v-if="!$v.form.event_name.required"
+                  >
+                    <strong>Event name is required</strong>
+                  </li>
+                </ul>
               </div>
             </div>
             <div class="flex flex-wrap -mx-3 mb-6">
               <div class="w-full px-3 mb-6 md:mb-0">
                 <label
-                  class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2"
+                  class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2 mt-4"
                   for="grid-first-name"
                 >
                   Will start at
                 </label>
                 <input
-                  class="appearance-none block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"
+                  class="appearance-none block w-full bg-gray-200 text-gray-700 border rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white"
                   type="date"
                   v-model="form.start_date"
                   min="2020-10-01"
                   max="2020-10-31"
+                  :class="{
+                    'bg-red-400': $v.form.start_date.$error,
+                  }"
                 />
+                <ul v-if="$v.form.$error">
+                  <li
+                    class="text-red-600 mb-2"
+                    v-if="!$v.form.start_date.required"
+                  >
+                    <strong>Start date is required</strong>
+                  </li>
+                </ul>
               </div>
               <div class="w-full px-3">
                 <label
-                  class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2"
+                  class="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2 mt-4"
                   for="grid-last-name"
                 >
                   Will end at
@@ -53,10 +79,21 @@
                   v-model="form.end_date"
                   min="2020-10-01"
                   max="2020-10-31"
+                  :class="{
+                    'bg-red-400': $v.form.end_date.$error,
+                  }"
                 />
+                <ul v-if="$v.form.$error">
+                  <li
+                    class="text-red-600 mb-2"
+                    v-if="!$v.form.end_date.required"
+                  >
+                    <strong>End date is required</strong>
+                  </li>
+                </ul>
               </div>
             </div>
-            <div class="flex flex-wrap -mx-3 mb-6">
+            <div class="flex flex-wrap -mx-3 mb-2">
               <div class="w-full px-3">
                 <div class="block">
                   <label
@@ -71,18 +108,29 @@
                           type="checkbox"
                           class="form-checkbox text-indigo-600"
                           :value="day_label"
-                          v-model="form.selectedDaysPerWeek"
+                          v-model="form.selected_days"
+                          :class="{
+                            'bg-red-400': $v.form.selected_days.$error,
+                          }"
                         />
                         <span class="ml-2">{{ day_label }}</span>
                       </label>
                     </div>
                   </div>
+                  <ul v-if="$v.form.$error">
+                    <li
+                      class="text-red-600 mb-2"
+                      v-if="!$v.form.selected_days.required"
+                    >
+                      <strong>Repeat day is required</strong>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
             <button
               type="button"
-              @click="addToDB"
+              @click="submit"
               class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded"
             >
               Save Event
@@ -118,13 +166,18 @@
               </p>
             </div>
             <div
-              v-for="index in 30"
+              v-for="index in dates"
               class="p-8 bg-white dark:bg-gray-800 overflow-hidden shadow sm:rounded-lg"
             >
               <p class="font-bold text-2xl text-blue-600">
                 {{ index }}
               </p>
-              Event Title # {{ index }}
+
+              <p v-for="event in events">
+                <span v-if="index == moment(event.date).format('D')">{{
+                  event.name
+                }}</span>
+              </p>
             </div>
           </div>
         </div>
@@ -134,41 +187,56 @@
 </template>
 
 <script>
+import axios from "axios";
 import moment from "moment";
+import { required, minValue } from "vuelidate/lib/validators";
+
 export default {
   name: "add-event-page",
+  created() {
+    axios.get(`/event`).then((response) => {
+      this.events = response.data.data;
+    });
+  },
+
   data() {
     return {
       loading: false,
       moment: moment,
+      events: [],
+      dates: Array.from(
+        Array(moment(new Date()).daysInMonth()),
+        (_, i) => i + 1
+      ),
       first_day: moment().startOf("month").format("dddd"),
       weekdays: moment.weekdays(),
-      weekdays_label: moment.weekdaysShort(),
+      weekdays_label: moment.weekdays(),
       form: {
         event_name: null,
-        start_date: new Date(),
-        end_date: new Date(),
-        selectedDaysPerWeek: [],
+        start_date: null,
+        end_date: null,
+        selected_days: [],
       },
     };
   },
-  methods: {
-    open() {
-      this.$toast.open({
-        message: moment.weekdays(),
-        type: "success",
-        duration: 3000,
-        dismissible: true,
-        position: "top-right",
-        pauseOnHover: true,
+  validations: {
+    form: {
+      event_name: { required },
+      start_date: { required },
+      end_date: {
+        required,
+      },
+      selected_days: { required },
+    },
+  },
+  watch: {
+    events(val) {
+      axios.get(`/event`).then((response) => {
+        this.events = response.data.data;
       });
     },
-    days() {
-      return Array.from(
-        Array(moment(new Date()).daysInMonth()),
-        (_, i) => i + 1
-      );
-    },
+  },
+  methods: {
     whatDayToday(day, index) {
       if (day == this.first_day) {
         console.log(this.weekdays.length - index);
@@ -178,6 +246,44 @@ export default {
     },
     addToDB() {
       console.error(this.form);
+    },
+    async submit() {
+      try {
+        console.log(this.form);
+        this.$v.$touch();
+        const attributes = await axios
+          .post(`/event`, {
+            event_name: this.form.event_name,
+            start_date: this.form.start_date,
+            end_date: this.form.end_date,
+            selected_days: this.form.selected_days,
+          })
+          .then((response) => {
+            this.$toast.open({
+              message: response.data.message,
+              type: "success",
+              duration: 3000,
+              dismissible: true,
+              position: "top-right",
+              pauseOnHover: true,
+            });
+            console.log(JSON.stringify(response.data));
+          })
+          .catch((error) => {
+            console.log("Your error is: " + JSON.stringify(error.response));
+            // this.$toast.open({
+            //   message: JSON.stringify(error.response.data.errors[0]),
+            //   type: "error",
+            //   duration: 3000,
+            //   dismissible: true,
+            //   position: "top-right",
+            //   pauseOnHover: true,
+            // });
+          });
+      } catch ({ response }) {
+        this.errors = [response.data.message];
+        console.log("Your error is 2: " + response);
+      }
     },
   },
 };

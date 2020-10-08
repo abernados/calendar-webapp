@@ -20,6 +20,7 @@
     "dependencies": {
         "moment": "^2.29.0",
         "vue": "^2.6.12",
-        "vue-toast-notification": "^0.5.4"
+        "vue-toast-notification": "^0.5.4",
+        "vuelidate": "^0.7.5"
     }
 }
